@@ -4,27 +4,31 @@
 using namespace cv;
   
 CameraRayCalculator::CameraRayCalculator(
-  float _focalLength,
-  float _sensorPhysicalWidth, float _sensorPhysicalHeight,
-  int _imageWidth, int _imageHeight
+  float focalLength,
+  float sensorPhysicalWidth, float sensorPhysicalHeight,
+  int imageWidth, int imageHeight
 )
-    : focalLength(_focalLength)
-    , sensorPhysicalWidth(_sensorPhysicalWidth)
-    , sensorPhysicalHeight(_sensorPhysicalHeight)
-    , imageWidth(_imageWidth)
-    , imageHeight(_imageHeight)
+    : camMat((Mat_<float>(3, 3) <<
+        focalLength * sensorPhysicalWidth / imageWidth , 0, imageWidth / 2.0,
+        0, focalLength * sensorPhysicalHeight / imageHeight, imageHeight / 2.0,
+        0, 0, 1
+    ))
 { }
 
-Mat CameraRayCalculator::operator()(float x, float y) {
-  // because sensor physical size has diffirent scale ratio from
-  // image size, so new y is computed to have the same scale
-  // ratio with x
-  y *= this->sensorPhysicalHeight * this->imageWidth;
-  y /= this->sensorPhysicalWidth * this->imageHeight;
+CameraRayCalculator::CameraRayCalculator(Mat _camMat)
+    : camMat(_camMat.clone())
+{ }
 
-  // also new focalLength is compute for the same reason
-  float newFocalLength = this->focalLength * this->imageWidth;
-  newFocalLength /= this->sensorPhysicalWidth;
+CameraRayCalculator::CameraRayCalculator(const CameraRayCalculator& other)
+    : camMat(other.camMat.clone())
+{}
 
-  return Mat_<float>(4, 1) << x, y, newFocalLength, 0;
+Vec3f CameraRayCalculator::getRay(float x, float y) {
+    float* data = (float*)this->camMat.data;
+    x -= data[2];
+    y -= data[5];
+    x /= data[0];
+    y /= data[4];
+    return -Vec3f(x, y, 1);
 }
+
